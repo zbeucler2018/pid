@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script src="https://cdn.plot.ly/plotly-2.34.0.min.js" charset="utf-8"></script>
+    </head>
+    <body>
+        <div id="graph" style="width:1200px;height:500px;"></div>
+        <div id="controls" style="display: flex; flex-direction: row;">
+            <form id="pidForm">
+                <label for="setpoint">Setpoint:</label>
+                <input type="number" id="setpoint" name="setpoint" value="100"><br><br>
+
+                <label for="kp">Kp:</label>
+                <input type="number" id="kp" name="kp" value="5.7" step="0.1"><br><br>
+
+                <label for="ki">Ki:</label>
+                <input type="number" id="ki" name="ki" value="0.5" step="0.1"><br><br>
+
+                <label for="kd">Kd:</label>
+                <input type="number" id="kd" name="kd" value="0" step="0.1"><br><br>
+
+                <label for="time_constant">Time Constant:</label>
+                <input type="number" id="time_constant" name="time_constant" value="1"><br><br>
+
+                <label for="nsteps">Number of Steps:</label>
+                <input type="number" id="nsteps" name="nsteps" value="50"><br><br>
+
+                <button type="submit">Run Simulation</button>
+            </form>
+            <style>
+                body {
+                    background-color: #1e1e1e;
+                    color: #cfcfcf;
+                    font-family: Arial, sans-serif;
+                }
+                #graph {
+                    width: 1200px;
+                    height: 500px;
+                    margin-top: 20px;
+                }
+                #controls {
+                    margin-top: 20px;
+                }
+                label {
+                    display: block;
+                    margin-bottom: 5px;
+                }
+                input {
+                    background-color: #333;
+                    color: #fff;
+                    border: 1px solid #555;
+                    padding: 5px;
+                    margin-bottom: 10px;
+                    width: 100px;
+                }
+                button {
+                    background-color: #007bff;
+                    color: #fff;
+                    border: none;
+                    padding: 10px 15px;
+                    cursor: pointer;
+                }
+                button:hover {
+                    background-color: #0056b3;
+                }
+            </style>
+    
+        </div>
+
+        <script>
+            // Function to run the PID simulation
+            function runSimulation(setpoint, kp, ki, kd, time_constant, nsteps) {
+                let setpoints = [setpoint];
+                let commands = [0]; // output
+                let actuals = []; // actual (will become sine wave)
+                let errors = [setpoints[0]]; // initial error assumes actuals[0] = 0
+                let integrator = 0;
+
+                // Generate the sine wave for actuals
+                for (let step = 0; step < nsteps; step += time_constant) {
+                    // Sine wave with a full period of nsteps (adjust frequency as needed)
+                    const sine_value = Math.sin((step / nsteps) * 2 * Math.PI) * 50; // amplitude = 50
+                    actuals.push(sine_value);
+
+                    if (step > 0) {
+                        setpoints.push(step < 10 ? setpoint : setpoint);
+
+                        // Calculate error
+                        const error = setpoints[step - 1] - actuals[step - 1];
+
+                        // Calculate pterm
+                        const pterm = kp * error;
+
+                        // Calculate iterm
+                        integrator += (error * ki) * time_constant; // dtime is 1
+
+                        // Calculate dterm
+                        const dterm = kd * (error - errors[step - 1]) / time_constant;
+
+                        // Calculate output (command)
+                        const command = pterm + integrator + dterm // + ffterm
+                        commands.push(command);
+
+                        // Store the error for the next step
+                        errors.push(error);
+                    }
+                }
+
+                const x = Array.from({ length: nsteps }, (_, i) => i);
+
+                // Create traces for each line
+                const trace1 = {
+                    x: x,
+                    y: commands,
+                    mode: 'lines+markers',
+                    name: 'commands',
+                    line: { color: 'red' }
+                };
+
+                const trace2 = {
+                    x: x,
+                    y: setpoints,
+                    mode: 'lines+markers',
+                    name: 'setpoints',
+                    line: { color: 'blue' }
+                };
+
+                const trace3 = {
+                    x: x,
+                    y: actuals,
+                    mode: 'lines+markers',
+                    name: 'actuals (Sine Wave)',
+                    line: { color: 'purple' }
+                };
+
+                const trace4 = {
+                    x: x,
+                    y: errors,
+                    mode: 'lines+markers',
+                    name: 'errors',
+                    line: { color: 'gray' }
+                };
+
+                // Combine traces into a data array
+                const data = [trace1, trace2, trace3, trace4];
+
+                // Set layout options for dark mode
+                const layout = {
+                    title: 'PID Controller Simulation with Sine Wave',
+                    xaxis: { title: 'Time', color: '#cfcfcf' },
+                    yaxis: { title: 'Values', color: '#cfcfcf' },
+                    paper_bgcolor: '#1e1e1e',
+                    plot_bgcolor: '#1e1e1e',
+                    font: { color: '#cfcfcf' },
+                };
+
+                Plotly.newPlot('graph', data, layout);
+            }
+
+            // Handle form submission
+            document.getElementById('pidForm').addEventListener('submit', function(event) {
+                event.preventDefault();
+
+                // Get values from the form
+                const setpoint = parseFloat(document.getElementById('setpoint').value);
+                const kp = parseFloat(document.getElementById('kp').value);
+                const ki = parseFloat(document.getElementById('ki').value);
+                const kd = parseFloat(document.getElementById('kd').value);
+                const time_constant = parseInt(document.getElementById('time_constant').value);
+                const nsteps = parseInt(document.getElementById('nsteps').value);
+
+                // Run the simulation with the user inputs
+                runSimulation(setpoint, kp, ki, kd, time_constant, nsteps);
+            });
+
+            // Initial run with default values
+            runSimulation(100, 5.7, 0.5, 0, 1, 50);
+
+        </script>
+    </body>
+</html>
